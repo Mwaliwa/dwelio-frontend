@@ -1,0 +1,233 @@
+/* ===================== PAGE ===================== */
+.agent-page {
+  --background: #f8fafc;
+}
+
+.agent-card {
+  margin: 0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* ===================== LOADING ===================== */
+.agent-loading {
+  min-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* ===================== ERROR ===================== */
+.agent-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.agent-error p {
+  margin: 0 0 12px;
+  color: #b91c1c;
+  font-size: 14.5px;
+}
+
+/* ===================== STATUS VIEW ===================== */
+.agent-status {
+  text-align: center;
+  padding: 20px 8px;
+}
+
+.status-icon {
+  font-size: 72px;
+  margin-bottom: 12px;
+}
+
+.status-icon.pending {
+  color: #f59e0b;
+}
+
+.status-icon.approved {
+  color: #10b981;
+}
+
+.status-icon.rejected {
+  color: #ef4444;
+}
+
+.agent-status h2 {
+  margin: 8px 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.agent-status p {
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.application-summary {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px 12px;
+  font-size: 14px;
+}
+
+.application-summary strong {
+  color: #475569;
+  font-weight: 600;
+}
+
+.application-summary span {
+  color: #1e293b;
+}
+
+.admin-note {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 14px;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.admin-note strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #9a3412;
+}
+
+.admin-note p {
+  margin: 0;
+  color: #7c2d12;
+  font-size: 14px;
+}
+
+/* ===================== INTRO ===================== */
+.agent-intro {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.agent-intro ion-icon {
+  font-size: 52px;
+  color: #2563eb;
+  margin-bottom: 12px;
+}
+
+.agent-intro h1 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.agent-intro p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+/* ===================== FORM SECTIONS ===================== */
+.form-section {
+  margin-bottom: 28px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-heading ion-icon {
+  font-size: 22px;
+  color: #2563eb;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.section-heading h3 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.section-heading p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Make form items look better */
+.form-section ion-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --background: transparent;
+  margin-bottom: 12px;
+}
+
+.form-section ion-input,
+.form-section ion-textarea,
+.form-section ion-select {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  font-size: 15px;
+}
+
+/* ===================== AGREEMENT ===================== */
+.agreement-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 24px 0 20px;
+}
+
+.agreement-box ion-checkbox {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.agreement-box ion-label {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #475569;
+  white-space: normal;
+}
+
+/* ===================== SUBMIT BUTTON ===================== */
+.submit-agent-button {
+  --border-radius: 12px;
+  --box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  height: 50px;
+  font-weight: 600;
+  font-size: 15.5px;
+  margin-top: 8px;
+}
+
+/* ===================== NOTE ===================== */
+.application-note {
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 18px 0 8px;
+  line-height: 1.5;
+}

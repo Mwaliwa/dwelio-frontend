@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MaloHub</string>
+    <string name="title_activity_main">MaloHub</string>
+    <string name="package_name">com.malohub.app</string>
+    <string name="custom_url_scheme">com.malohub.app</string>
+</resources>

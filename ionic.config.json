@@ -1,0 +1,7 @@
+{
+  "name": "MaloHub",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
