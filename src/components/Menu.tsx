@@ -157,7 +157,7 @@ export default function Menu() {
       ? "Landlord"
       : normalizedRole === "customer"
       ? "Customer"
-      : "Dwelio User");
+      : "MaloHub User");
 
   const displayEmail =
     user?.email || "";
@@ -268,7 +268,7 @@ export default function Menu() {
           button
           detail={false}
           lines="none"
-          className="dwelio-menu-item"
+          className="malohub-menu-item"
           onClick={() => navigate(path)}
         >
           <IonIcon

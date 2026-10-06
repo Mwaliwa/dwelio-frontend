@@ -1,1135 +1,631 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  IonBadge,
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
   IonButton,
-  IonButtons,
+  IonTextarea,
+  IonInput,
+  IonSelect,
+  IonSelectOption,
   IonCard,
   IonCardContent,
-  IonCol,
-  IonContent,
-  IonGrid,
-  IonHeader,
   IonIcon,
+  IonSpinner,
+  IonText,
+  IonButtons,
+  IonBackButton,
   IonItem,
   IonLabel,
   IonList,
-  IonLoading,
-  IonModal,
-  IonPage,
-  IonRefresher,
-  IonRefresherContent,
-  IonRow,
-  IonSearchbar,
-  IonSelect,
-  IonSelectOption,
-  IonSpinner,
-  IonText,
-  IonTextarea,
-  IonTitle,
-  IonToolbar,
-  useIonAlert,
-  useIonRouter,
+  IonCheckbox,
   useIonToast,
+  useIonRouter,
 } from "@ionic/react";
-
 import {
-  alertCircleOutline,
-  arrowBackOutline,
-  calendarOutline,
+  personAddOutline,
   checkmarkCircleOutline,
-  checkmarkOutline,
-  closeCircleOutline,
-  closeOutline,
-  documentTextOutline,
-  mailOutline,
-  personCircleOutline,
-  refreshOutline,
-  searchOutline,
   timeOutline,
+  closeCircleOutline,
+  refreshOutline,
+  businessOutline,
+  locationOutline,
+  documentTextOutline,
+  copyOutline,
 } from "ionicons/icons";
 
-/* =========================================================
-   CONFIG
-========================================================= */
+import "./BecomeAgent.css";
 
 const API_URL = "http://localhost:5001";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
-type RequestStatus = "pending" | "approved" | "rejected";
-type FilterStatus = RequestStatus | "all";
-
 interface AgentRequest {
-  id: number;
-  name: string;
-  email: string;
+  id?: number | string;
+  full_name?: string;
+  phone?: string;
+  email?: string;
+  national_id?: string;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  city?: string;
+  occupation?: string;
+  experience?: string;
+  company_name?: string | null;
+  license_number?: string | null;
+  property_types?: string;
+  operating_areas?: string;
   message?: string | null;
-  status: RequestStatus;
+  status: string;
   admin_note?: string | null;
-  created_at: string;
-  updated_at?: string | null;
+  agent_code?: string | null; // ← added
+  created_at?: string;
 }
 
-interface ApiResponse {
-  success?: boolean;
-  error?: string;
-  message?: string;
-  requests?: AgentRequest[];
-  data?: AgentRequest[] | { requests?: AgentRequest[] };
+interface AgentForm {
+  full_name: string;
+  phone: string;
+  email: string;
+  national_id: string;
+  date_of_birth: string;
+  gender: string;
+  address: string;
+  city: string;
+  occupation: string;
+  experience: string;
+  company_name: string;
+  license_number: string;
+  property_types: string;
+  operating_areas: string;
+  message: string;
 }
 
-interface ActionResponse {
-  success?: boolean;
-  error?: string;
-  message?: string;
-  request?: AgentRequest;
-}
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-const getStatusColor = (
-  status: RequestStatus
-): "warning" | "success" | "danger" => {
-  switch (status) {
-    case "approved":
-      return "success";
-    case "rejected":
-      return "danger";
-    default:
-      return "warning";
-  }
+const initialForm: AgentForm = {
+  full_name: "",
+  phone: "",
+  email: "",
+  national_id: "",
+  date_of_birth: "",
+  gender: "",
+  address: "",
+  city: "",
+  occupation: "",
+  experience: "",
+  company_name: "",
+  license_number: "",
+  property_types: "",
+  operating_areas: "",
+  message: "",
 };
 
-const getStatusIcon = (status: RequestStatus) => {
-  switch (status) {
-    case "approved":
-      return checkmarkCircleOutline;
-    case "rejected":
-      return closeCircleOutline;
-    default:
-      return timeOutline;
-  }
-};
-
-const formatDate = (date?: string | null) => {
-  if (!date) return "Unknown date";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "Unknown date";
-  return parsed.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-};
-
-const getInitials = (name?: string) => {
-  if (!name) return "U";
-  const words = name.trim().split(/\s+/);
-  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-};
-
-const normalizeRequests = (raw: any): AgentRequest[] => {
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw?.requests)) return raw.requests;
-  if (Array.isArray(raw?.data)) return raw.data;
-  if (Array.isArray(raw?.data?.requests)) return raw.data.requests;
-  return [];
-};
-
-/* =========================================================
-   COMPONENT
-========================================================= */
-
-export default function AdminAgentRequests() {
+export default function BecomeAgent() {
   const router = useIonRouter();
   const [presentToast] = useIonToast();
-  const [presentAlert] = useIonAlert();
 
-  const [requests, setRequests] = useState<AgentRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [form, setForm] = useState<AgentForm>(initialForm);
+  const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [request, setRequest] = useState<AgentRequest | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [agentCode, setAgentCode] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<FilterStatus>("pending");
-  const [searchTerm, setSearchTerm] = useState("");
+  const getToken = () => localStorage.getItem("token");
 
-  const [selectedRequest, setSelectedRequest] =
-    useState<AgentRequest | null>(null);
-  const [adminNote, setAdminNote] = useState("");
+  // --------------------------------------------------
+  // Load basic user info from localStorage
+  // --------------------------------------------------
+  const loadUserInformation = () => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (!savedUser) return;
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+      const user = JSON.parse(savedUser);
 
-  const token = useMemo(() => localStorage.getItem("token"), []);
+      setForm((prev) => ({
+        ...prev,
+        full_name: prev.full_name || user.full_name || user.name || "",
+        email: prev.email || user.email || "",
+        phone: prev.phone || user.phone || user.phone_number || "",
+      }));
 
-  /* ---------- TOAST ---------- */
-
-  const showToast = useCallback(
-    async (
-      message: string,
-      color: "success" | "danger" | "warning" | "medium" = "medium"
-    ) => {
-      await presentToast({
-        message,
-        color,
-        duration: 3000,
-        position: "bottom",
-      });
-    },
-    [presentToast]
-  );
-
-  /* ---------- AUTH ---------- */
-
-  const handleUnauthorized = useCallback(
-    async (status: number) => {
-      if (status !== 401 && status !== 403) return false;
-
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      await showToast(
-        status === 403
-          ? "You do not have permission to access this page."
-          : "Your session has expired. Please login again.",
-        "danger"
-      );
-
-      router.push("/login", "root", "replace");
-      return true;
-    },
-    [router, showToast]
-  );
-
-  /* ---------- SAFE JSON ---------- */
-
-  const parseResponse = async <T,>(response: Response): Promise<T> => {
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      const text = await response.text();
-      throw new Error(
-        text || `Server returned an unexpected response (${response.status}).`
-      );
+      // If user already has an agent code, store it
+      if (user.agent_code) {
+        setAgentCode(user.agent_code);
+      }
+    } catch (err) {
+      console.error("Could not load saved user:", err);
     }
-    return response.json() as Promise<T>;
   };
 
-  /* ---------- FETCH ---------- */
+  // --------------------------------------------------
+  // Update a single form field
+  // --------------------------------------------------
+  const updateField = (field: keyof AgentForm, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const fetchRequests = useCallback(
-    async (showLoader = true) => {
-      if (!token) {
-        await showToast(
-          "Authentication required. Please login again.",
-          "danger"
-        );
-        router.push("/login", "root", "replace");
+  // --------------------------------------------------
+  // Check existing application status
+  // --------------------------------------------------
+  const checkStatus = useCallback(async () => {
+    const token = getToken();
+
+    if (!token) {
+      setChecking(false);
+      setError("You must be logged in.");
+      presentToast({
+        message: "Please log in first.",
+        color: "danger",
+        duration: 2500,
+      });
+      setTimeout(() => router.push("/login", "root", "replace"), 400);
+      return;
+    }
+
+    setChecking(true);
+    setError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(`${API_URL}/api/agent-requests/me`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+      });
+
+      const raw = await res.text();
+      let data: any = {};
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error(`Invalid server response (${res.status})`);
+        }
+      }
+
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem("token");
+        presentToast({
+          message: "Session expired. Please log in again.",
+          color: "danger",
+          duration: 2500,
+        });
+        setTimeout(() => router.push("/login", "root", "replace"), 300);
         return;
       }
 
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (res.status === 404) {
+        setRequest(null);
+        return;
       }
 
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      try {
-        if (showLoader) setLoading(true);
-
-        // Fixed: no more comparison against empty string
-        const query =
-          filter !== "all"
-            ? `?status=${encodeURIComponent(filter)}`
-            : "";
-
-        const response = await fetch(
-          `${API_URL}/api/agent-requests/admin${query}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-            signal: controller.signal,
-          }
+      if (!res.ok) {
+        throw new Error(
+          data.error || data.message || `Failed to check status (${res.status})`
         );
+      }
 
-        if (await handleUnauthorized(response.status)) return;
+      const existing =
+        data.request ??
+        data.data?.request ??
+        (data.id && data.status ? data : null);
 
-        const data = await parseResponse<ApiResponse>(response);
+      setRequest(existing || null);
 
-        if (!response.ok) {
-          throw new Error(
-            data.error ||
-              data.message ||
-              `Failed to load requests (${response.status}).`
-          );
+      // If approved and backend returns agent_code
+      if (existing?.agent_code) {
+        setAgentCode(existing.agent_code);
+      }
+
+      // Also try to get agent_code from localStorage user
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        if (user.agent_code) {
+          setAgentCode(user.agent_code);
         }
-
-        const list = normalizeRequests(data);
-        setRequests(list);
-      } catch (error: any) {
-        if (error?.name === "AbortError") return;
-
-        console.error("FETCH AGENT REQUESTS ERROR:", error);
-        await showToast(
-          error?.message || "Failed to load agent requests.",
-          "danger"
-        );
-      } finally {
-        if (showLoader) setLoading(false);
-        abortControllerRef.current = null;
       }
-    },
-    [filter, handleUnauthorized, router, showToast, token]
-  );
+    } catch (err: any) {
+      console.error("Check agent request error:", err);
 
-  useEffect(() => {
-    fetchRequests(true);
-
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (err.name === "AbortError") {
+        setError("Request timed out. Is the backend running on port 5001?");
+      } else {
+        setError(err.message || "Could not check request status.");
       }
-    };
-  }, [fetchRequests]);
-
-  /* ---------- REFRESH ---------- */
-
-  const handleRefresh = async (event: CustomEvent) => {
-    setRefreshing(true);
-    try {
-      await fetchRequests(false);
+      setRequest(null);
     } finally {
-      setRefreshing(false);
-      event.detail.complete();
+      clearTimeout(timeoutId);
+      setChecking(false);
     }
+  }, [presentToast, router]);
+
+  // --------------------------------------------------
+  // Initial load
+  // --------------------------------------------------
+  useEffect(() => {
+    loadUserInformation();
+    checkStatus();
+  }, [checkStatus]);
+
+  // --------------------------------------------------
+  // Validation
+  // --------------------------------------------------
+  const validateForm = (): string | null => {
+    if (!form.full_name.trim()) return "Please enter your full name.";
+    if (!form.phone.trim()) return "Please enter your phone number.";
+    if (!form.email.trim()) return "Please enter your email address.";
+    if (!form.national_id.trim()) return "Please enter your national ID number.";
+    if (!form.date_of_birth) return "Please enter your date of birth.";
+    if (!form.gender) return "Please select your gender.";
+    if (!form.address.trim()) return "Please enter your residential address.";
+    if (!form.city.trim()) return "Please enter your city or location.";
+    if (!form.occupation.trim()) return "Please enter your occupation.";
+    if (!form.experience) return "Please select your real estate experience.";
+    if (!form.property_types)
+      return "Please select the type of properties you want to manage.";
+    if (!form.operating_areas.trim())
+      return "Please enter the areas where you intend to operate.";
+    if (!form.message.trim())
+      return "Please explain why you want to become an agent.";
+    if (!agreed)
+      return "Please confirm that the information you provided is accurate.";
+
+    return null;
   };
 
-  /* ---------- FILTERED LIST ---------- */
+  // --------------------------------------------------
+  // Submit application
+  // --------------------------------------------------
+  const handleSubmit = async () => {
+    if (loading || checking) return;
 
-  const filteredRequests = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return requests;
-
-    return requests.filter(
-      (r) =>
-        r.name?.toLowerCase().includes(term) ||
-        r.email?.toLowerCase().includes(term)
-    );
-  }, [requests, searchTerm]);
-
-  /* ---------- COUNTS ---------- */
-
-  const counts = useMemo(() => {
-    return {
-      pending: requests.filter((r) => r.status === "pending").length,
-      approved: requests.filter((r) => r.status === "approved").length,
-      rejected: requests.filter((r) => r.status === "rejected").length,
-      total: requests.length,
-    };
-  }, [requests]);
-
-  /* ---------- OPEN / CLOSE ---------- */
-
-  const openRequest = (request: AgentRequest) => {
-    setSelectedRequest(request);
-    setAdminNote(request.admin_note || "");
-  };
-
-  const closeRequest = () => {
-    if (actionLoading) return;
-    setSelectedRequest(null);
-    setAdminNote("");
-  };
-
-  /* ---------- ACTIONS ---------- */
-
-  const confirmAction = (status: "approved" | "rejected") => {
-    if (!selectedRequest || actionLoading) return;
-
-    presentAlert({
-      header:
-        status === "approved"
-          ? "Approve Agent Request?"
-          : "Reject Agent Request?",
-      message:
-        status === "approved"
-          ? `Are you sure you want to approve ${selectedRequest.name} as an agent?`
-          : `Are you sure you want to reject ${selectedRequest.name}'s agent request?`,
-      buttons: [
-        { text: "Cancel", role: "cancel" },
-        {
-          text: status === "approved" ? "Approve" : "Reject",
-          role: "destructive",
-          handler: () => handleAction(status),
-        },
-      ],
-    });
-  };
-
-  const handleAction = async (status: "approved" | "rejected") => {
-    if (!selectedRequest || actionLoading) return;
-
+    const token = getToken();
     if (!token) {
-      await showToast(
-        "Authentication required. Please login again.",
-        "danger"
-      );
+      presentToast({
+        message: "Please log in first.",
+        color: "danger",
+        duration: 2500,
+      });
       router.push("/login", "root", "replace");
       return;
     }
 
-    setActionLoading(true);
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      presentToast({
+        message: validationError,
+        color: "danger",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/agent-requests/admin/${selectedRequest.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            status,
-            admin_note: adminNote.trim() || null,
-          }),
+      const res = await fetch(`${API_URL}/api/agent-requests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          national_id: form.national_id.trim(),
+          date_of_birth: form.date_of_birth,
+          gender: form.gender,
+          address: form.address.trim(),
+          city: form.city.trim(),
+          occupation: form.occupation.trim(),
+          experience: form.experience,
+          company_name: form.company_name.trim() || null,
+          license_number: form.license_number.trim() || null,
+          property_types: form.property_types,
+          operating_areas: form.operating_areas.trim(),
+          message: form.message.trim(),
+        }),
+      });
+
+      const raw = await res.text();
+      let data: any = {};
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error(`Invalid server response (${res.status})`);
         }
-      );
+      }
 
-      if (await handleUnauthorized(response.status)) return;
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem("token");
+        presentToast({
+          message: "Session expired. Please log in again.",
+          color: "danger",
+          duration: 2500,
+        });
+        router.push("/login", "root", "replace");
+        return;
+      }
 
-      const data = await parseResponse<ActionResponse>(response);
-
-      if (!response.ok || data.success === false) {
+      if (!res.ok) {
         throw new Error(
-          data.error || data.message || `Unable to ${status} request.`
+          data.error || data.message || `Failed to submit request (${res.status})`
         );
       }
 
-      await showToast(
-        status === "approved"
-          ? "Agent request approved successfully."
-          : "Agent request rejected successfully.",
-        "success"
-      );
+      const created = data.request || data.data?.request;
 
-      setSelectedRequest(null);
-      setAdminNote("");
-      await fetchRequests(false);
-    } catch (error: any) {
-      console.error("AGENT REQUEST ACTION ERROR:", error);
-      if (error?.name !== "AbortError") {
-        await showToast(
-          error?.message ||
-            "Something went wrong while processing the request.",
-          "danger"
-        );
+      if (created) {
+        setRequest(created);
+      } else {
+        setRequest({
+          ...form,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        });
       }
+
+      setForm(initialForm);
+      setAgreed(false);
+
+      presentToast({
+        message: data.message || "Agent application submitted successfully!",
+        color: "success",
+        duration: 3500,
+        icon: checkmarkCircleOutline,
+      });
+    } catch (err: any) {
+      console.error("Submit agent request error:", err);
+      setError(err.message || "Something went wrong while submitting your application.");
+      presentToast({
+        message: err.message || "Something went wrong.",
+        color: "danger",
+        duration: 3500,
+      });
     } finally {
-      setActionLoading(false);
+      setLoading(false);
     }
   };
 
-  const filterLabel = useMemo(() => {
-    switch (filter) {
-      case "pending":
-        return "Pending Requests";
-      case "approved":
-        return "Approved Requests";
-      case "rejected":
-        return "Rejected Requests";
-      default:
-        return "All Requests";
+  // --------------------------------------------------
+  // Reset form
+  // --------------------------------------------------
+  const handleNewApplication = () => {
+    setRequest(null);
+    setError(null);
+    setAgreed(false);
+    setForm(initialForm);
+    loadUserInformation();
+  };
+
+  // --------------------------------------------------
+  // Copy Agent Code
+  // --------------------------------------------------
+  const copyAgentCode = async () => {
+    if (!agentCode) return;
+    try {
+      await navigator.clipboard.writeText(agentCode);
+      presentToast({
+        message: "Agent Code copied!",
+        color: "success",
+        duration: 2000,
+      });
+    } catch {
+      presentToast({
+        message: "Could not copy code",
+        color: "medium",
+        duration: 2000,
+      });
     }
-  }, [filter]);
+  };
 
-  /* ---------- RENDER ---------- */
+  const status = String(request?.status || "").toLowerCase();
 
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
   return (
     <IonPage>
-      <IonHeader translucent>
+      <IonHeader>
         <IonToolbar color="primary">
           <IonButtons slot="start">
-            <IonButton
-              fill="clear"
-              color="light"
-              aria-label="Go back"
-              onClick={() => router.goBack()}
-            >
-              <IonIcon slot="icon-only" icon={arrowBackOutline} />
-            </IonButton>
+            <IonBackButton defaultHref="/customer/profile" />
           </IonButtons>
-
-          <IonTitle>Agent Requests</IonTitle>
-
-          <IonButtons slot="end">
-            <IonButton
-              fill="clear"
-              color="light"
-              aria-label="Refresh requests"
-              disabled={loading || refreshing}
-              onClick={() => fetchRequests(true)}
-            >
-              <IonIcon slot="icon-only" icon={refreshOutline} />
-            </IonButton>
-          </IonButtons>
+          <IonTitle>Become an Agent</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent
-        fullscreen
-        style={{ "--background": "#f6f7fb" } as React.CSSProperties}
-      >
-        <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
-          <IonRefresherContent
-            pullingText="Pull to refresh"
-            refreshingText="Refreshing..."
-          />
-        </IonRefresher>
-
-        {/* Page header */}
-        <div style={{ padding: "24px 16px 12px" }}>
-          <IonText>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 25,
-                fontWeight: 700,
-                color: "#1f2937",
-              }}
-            >
-              Agent Applications
-            </h1>
-            <p
-              style={{
-                margin: "7px 0 0",
-                color: "#6b7280",
-                fontSize: 14,
-                lineHeight: 1.5,
-              }}
-            >
-              Review and manage users requesting agent access.
-            </p>
-          </IonText>
-        </div>
-
-        {/* Filter + Search card */}
-        <IonCard
-          style={{
-            margin: "12px 16px 18px",
-            borderRadius: 16,
-            boxShadow: "0 4px 18px rgba(0,0,0,0.06)",
-          }}
-        >
-          <IonCardContent>
-            <IonGrid>
-              <IonRow className="ion-align-items-center">
-                <IonCol size="12" sizeMd="6">
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#6b7280",
-                        marginBottom: 5,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                      }}
-                    >
-                      Filter
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: "#111827",
-                      }}
-                    >
-                      {filterLabel}
-                    </div>
-                  </div>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="6">
-                  <IonSelect
-                    value={filter}
-                    label="Status"
-                    labelPlacement="stacked"
-                    fill="outline"
-                    interface="popover"
-                    onIonChange={(e) =>
-                      setFilter(e.detail.value as FilterStatus)
-                    }
-                  >
-                    <IonSelectOption value="pending">Pending</IonSelectOption>
-                    <IonSelectOption value="approved">Approved</IonSelectOption>
-                    <IonSelectOption value="rejected">Rejected</IonSelectOption>
-                    <IonSelectOption value="all">All</IonSelectOption>
-                  </IonSelect>
-                </IonCol>
-              </IonRow>
-
-              <IonRow>
-                <IonCol size="12">
-                  <IonSearchbar
-                    value={searchTerm}
-                    placeholder="Search by name or email..."
-                    onIonInput={(e) => setSearchTerm(e.detail.value || "")}
-                    style={{ padding: "8px 0 0" }}
-                  />
-                </IonCol>
-              </IonRow>
-            </IonGrid>
-          </IonCardContent>
-        </IonCard>
-
-        {/* Quick counts (only when "All" is selected) */}
-        {!loading && filter === "all" && (
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              padding: "0 16px 16px",
-              flexWrap: "wrap",
-            }}
-          >
-            <IonBadge color="warning" style={{ padding: "6px 12px" }}>
-              Pending: {counts.pending}
-            </IonBadge>
-            <IonBadge color="success" style={{ padding: "6px 12px" }}>
-              Approved: {counts.approved}
-            </IonBadge>
-            <IonBadge color="danger" style={{ padding: "6px 12px" }}>
-              Rejected: {counts.rejected}
-            </IonBadge>
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "70px 20px",
-              gap: 14,
-            }}
-          >
+      <IonContent className="ion-padding agent-page">
+        {checking ? (
+          <div className="agent-loading">
             <IonSpinner name="crescent" />
-            <IonText color="medium">
-              <p style={{ margin: 0 }}>Loading agent requests...</p>
-            </IonText>
+            <IonText color="medium">Checking application status...</IonText>
           </div>
-        )}
-
-        {/* Empty */}
-        {!loading && filteredRequests.length === 0 && (
-          <div
-            style={{
-              margin: "35px 16px",
-              padding: "45px 25px",
-              background: "#ffffff",
-              borderRadius: 18,
-              textAlign: "center",
-              boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-            }}
-          >
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                margin: "0 auto 18px",
-                borderRadius: "50%",
-                background: "#f1f5f9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <IonIcon
-                icon={searchTerm ? searchOutline : documentTextOutline}
-                style={{ fontSize: 34, color: "#64748b" }}
-              />
-            </div>
-
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 20,
-                fontWeight: 700,
-                color: "#1f2937",
-              }}
-            >
-              {searchTerm ? "No matching requests" : "No requests found"}
-            </h2>
-
-            <p
-              style={{
-                margin: "9px auto 20px",
-                maxWidth: 360,
-                color: "#6b7280",
-                lineHeight: 1.5,
-                fontSize: 14,
-              }}
-            >
-              {searchTerm
-                ? "Try a different name or email."
-                : "There are currently no agent requests matching the selected status."}
-            </p>
-
-            <IonButton fill="outline" onClick={() => fetchRequests(true)}>
-              <IonIcon icon={refreshOutline} slot="start" />
-              Refresh
-            </IonButton>
-          </div>
-        )}
-
-        {/* List */}
-        {!loading && filteredRequests.length > 0 && (
-          <IonList
-            lines="none"
-            style={{
-              background: "transparent",
-              padding: "0 16px 30px",
-            }}
-          >
-            {filteredRequests.map((request) => (
-              <IonItem
-                key={request.id}
-                button
-                detail
-                onClick={() => openRequest(request)}
-                style={
-                  {
-                    "--background": "#ffffff",
-                    "--border-radius": "16px",
-                    "--padding-start": "14px",
-                    "--padding-end": "12px",
-                    marginBottom: "10px",
-                    borderRadius: "16px",
-                    boxShadow: "0 3px 14px rgba(0,0,0,0.045)",
-                  } as React.CSSProperties
-                }
-              >
-                <div
-                  slot="start"
-                  style={{
-                    width: 46,
-                    height: 46,
-                    minWidth: 46,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #e0e7ff, #dbeafe)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#3730a3",
-                    fontWeight: 700,
-                    fontSize: 14,
-                  }}
-                >
-                  {getInitials(request.name)}
+        ) : (
+          <IonCard className="agent-card">
+            <IonCardContent>
+              {/* Error Banner */}
+              {error && (
+                <div className="agent-error">
+                  <IonText color="danger">
+                    <p>{error}</p>
+                  </IonText>
+                  <IonButton size="small" fill="outline" onClick={checkStatus}>
+                    <IonIcon icon={refreshOutline} slot="start" />
+                    Retry
+                  </IonButton>
                 </div>
+              )}
 
-                <IonLabel>
-                  <h2
-                    style={{
-                      fontWeight: 700,
-                      color: "#111827",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {request.name}
-                  </h2>
-                  <p
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                    }}
-                  >
-                    <IonIcon icon={mailOutline} />
-                    {request.email}
-                  </p>
-                  <p
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      marginTop: 4,
-                      fontSize: 12,
-                    }}
-                  >
-                    <IonIcon icon={calendarOutline} />
-                    {formatDate(request.created_at)}
-                  </p>
-                </IonLabel>
-
-                <IonBadge
-                  slot="end"
-                  color={getStatusColor(request.status)}
-                  style={{
-                    textTransform: "capitalize",
-                    padding: "6px 9px",
-                    borderRadius: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <IonIcon icon={getStatusIcon(request.status)} />
-                  {request.status}
-                </IonBadge>
-              </IonItem>
-            ))}
-          </IonList>
-        )}
-
-        <IonLoading
-          isOpen={actionLoading}
-          message="Processing request..."
-          spinner="crescent"
-        />
-
-        {/* Review Modal */}
-        <IonModal
-          isOpen={!!selectedRequest}
-          onDidDismiss={closeRequest}
-          breakpoints={[0, 0.65, 0.95, 1]}
-          initialBreakpoint={0.95}
-          handleBehavior="cycle"
-        >
-          <IonHeader>
-            <IonToolbar>
-              <IonTitle>Review Application</IonTitle>
-              <IonButtons slot="end">
-                <IonButton onClick={closeRequest} disabled={actionLoading}>
-                  <IonIcon slot="icon-only" icon={closeOutline} />
-                </IonButton>
-              </IonButtons>
-            </IonToolbar>
-          </IonHeader>
-
-          <IonContent
-            className="ion-padding"
-            style={{ "--background": "#f6f7fb" } as React.CSSProperties}
-          >
-            {selectedRequest && (
-              <div style={{ maxWidth: 720, margin: "0 auto" }}>
-                {/* Profile */}
-                <IonCard
-                  style={{
-                    margin: "0 0 14px",
-                    borderRadius: 18,
-                    boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <IonCardContent>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 15,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 64,
-                          height: 64,
-                          minWidth: 64,
-                          borderRadius: "50%",
-                          background:
-                            "linear-gradient(135deg, #4f46e5, #2563eb)",
-                          color: "#ffffff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                          fontSize: 19,
-                        }}
-                      >
-                        {getInitials(selectedRequest.name)}
-                      </div>
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <h2
-                          style={{
-                            margin: 0,
-                            fontSize: 20,
-                            fontWeight: 700,
-                            color: "#111827",
-                          }}
-                        >
-                          {selectedRequest.name}
-                        </h2>
-                        <p
-                          style={{
-                            margin: "5px 0 0",
-                            color: "#6b7280",
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {selectedRequest.email}
-                        </p>
-                      </div>
-
-                      <IonBadge
-                        color={getStatusColor(selectedRequest.status)}
-                        style={{
-                          textTransform: "capitalize",
-                          padding: "7px 10px",
-                          borderRadius: 8,
-                        }}
-                      >
-                        {selectedRequest.status}
-                      </IonBadge>
-                    </div>
-                  </IonCardContent>
-                </IonCard>
-
-                {/* Details */}
-                <IonCard
-                  style={{
-                    margin: "0 0 14px",
-                    borderRadius: 18,
-                    boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <IonCardContent>
-                    <h3
-                      style={{
-                        margin: "0 0 15px",
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: "#111827",
-                      }}
-                    >
-                      Application Details
-                    </h3>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        color: "#6b7280",
-                        fontSize: 14,
-                      }}
-                    >
-                      <IonIcon
-                        icon={calendarOutline}
-                        style={{ fontSize: 20 }}
-                      />
-                      <div>
-                        <div style={{ fontSize: 12, marginBottom: 2 }}>
-                          Submitted
-                        </div>
-                        <strong style={{ color: "#374151" }}>
-                          {formatDate(selectedRequest.created_at)}
-                        </strong>
-                      </div>
-                    </div>
-                  </IonCardContent>
-                </IonCard>
-
-                {/* Message */}
-                <IonCard
-                  style={{
-                    margin: "0 0 14px",
-                    borderRadius: 18,
-                    boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <IonCardContent>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 10,
-                      }}
-                    >
-                      <IonIcon
-                        icon={personCircleOutline}
-                        style={{ fontSize: 21 }}
-                      />
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: 16,
-                          fontWeight: 700,
-                        }}
-                      >
-                        Applicant Message
-                      </h3>
-                    </div>
-
-                    <div
-                      style={{
-                        background: "#f8fafc",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 12,
-                        padding: 15,
-                        color: "#374151",
-                        lineHeight: 1.6,
-                        whiteSpace: "pre-wrap",
-                        minHeight: 60,
-                      }}
-                    >
-                      {selectedRequest.message ||
-                        "The applicant did not provide a message."}
-                    </div>
-                  </IonCardContent>
-                </IonCard>
-
-                {/* Actions (only for pending) */}
-                {selectedRequest.status === "pending" && (
-                  <IonCard
-                    style={{
-                      margin: "0 0 25px",
-                      borderRadius: 18,
-                      boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    <IonCardContent>
-                      <h3
-                        style={{
-                          margin: "0 0 6px",
-                          fontSize: 16,
-                          fontWeight: 700,
-                        }}
-                      >
-                        Administrator Decision
-                      </h3>
-                      <p
-                        style={{
-                          margin: "0 0 15px",
-                          color: "#6b7280",
-                          fontSize: 13,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        Add an optional note before approving or rejecting
-                        this application.
+              {/* ===================== EXISTING REQUEST ===================== */}
+              {request ? (
+                <div className="agent-status">
+                  {/* ---------- PENDING ---------- */}
+                  {status === "pending" && (
+                    <>
+                      <IonIcon icon={timeOutline} className="status-icon pending" />
+                      <h2>Application Pending</h2>
+                      <p>
+                        Your agent application is currently being reviewed by an
+                        administrator.
                       </p>
 
-                      <IonTextarea
-                        label="Admin Note"
-                        labelPlacement="stacked"
-                        fill="outline"
-                        autoGrow
-                        rows={4}
-                        value={adminNote}
-                        maxlength={1000}
-                        counter
-                        placeholder="Enter an optional note for the applicant..."
-                        onIonInput={(e) =>
-                          setAdminNote(e.detail.value || "")
-                        }
+                      <div className="application-summary">
+                        <strong>Applicant</strong>
+                        <span>{request.full_name || "—"}</span>
+
+                        <strong>Location</strong>
+                        <span>{request.city || "—"}</span>
+
+                        <strong>Phone</strong>
+                        <span>{request.phone || "—"}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ---------- APPROVED ---------- */}
+                  {status === "approved" && (
+                    <>
+                      <IonIcon
+                        icon={checkmarkCircleOutline}
+                        className="status-icon approved"
                       />
+                      <h2>Congratulations!</h2>
+                      <p>
+                        Your application has been approved. You are now a official
+                        MaloHub Agent.
+                      </p>
 
-                      <IonGrid style={{ padding: "18px 0 0" }}>
-                        <IonRow>
-                          <IonCol size="12" sizeSm="6">
-                            <IonButton
-                              expand="block"
-                              color="success"
-                              disabled={actionLoading}
-                              onClick={() => confirmAction("approved")}
-                            >
-                              <IonIcon
-                                icon={checkmarkOutline}
-                                slot="start"
-                              />
-                              Approve
-                            </IonButton>
-                          </IonCol>
-                          <IonCol size="12" sizeSm="6">
-                            <IonButton
-                              expand="block"
-                              color="danger"
-                              fill="outline"
-                              disabled={actionLoading}
-                              onClick={() => confirmAction("rejected")}
-                            >
-                              <IonIcon icon={closeOutline} slot="start" />
-                              Reject
-                            </IonButton>
-                          </IonCol>
-                        </IonRow>
-                      </IonGrid>
-                    </IonCardContent>
-                  </IonCard>
-                )}
-
-                {/* Previous decision */}
-                {selectedRequest.status !== "pending" && (
-                  <IonCard
-                    style={{
-                      margin: "0 0 25px",
-                      borderRadius: 18,
-                      boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    <IonCardContent>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          marginBottom: 12,
-                        }}
-                      >
-                        <IonIcon
-                          icon={alertCircleOutline}
-                          style={{ fontSize: 22 }}
-                        />
-                        <h3
+                      {/* Agent Code Box */}
+                      {(agentCode || request.agent_code) && (
+                        <div
                           style={{
-                            margin: 0,
-                            fontSize: 16,
-                            fontWeight: 700,
+                            margin: "24px 0",
+                            padding: "18px 20px",
+                            background: "linear-gradient(135deg, #ecfdf5, #d1fae5)",
+                            border: "1px solid #a7f3d0",
+                            borderRadius: "14px",
+                            textAlign: "center",
                           }}
                         >
-                          Administrator Note
-                        </h3>
-                      </div>
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              color: "#065f46",
+                              marginBottom: "6px",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.5px",
+                            }}
+                          >
+                            Your Agent Code
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "26px",
+                              fontWeight: 800,
+                              color: "#047857",
+                              letterSpacing: "1px",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            {agentCode || request.agent_code}
+                          </div>
+                          <IonButton
+                            size="small"
+                            fill="outline"
+                            color="success"
+                            onClick={copyAgentCode}
+                          >
+                            <IonIcon icon={copyOutline} slot="start" />
+                            Copy Code
+                          </IonButton>
+                        </div>
+                      )}
 
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 12,
-                          padding: 15,
-                          color: "#374151",
-                          lineHeight: 1.6,
-                          whiteSpace: "pre-wrap",
-                        }}
+                      <IonButton
+                        expand="block"
+                        size="large"
+                        onClick={() => router.push("/agent/dashboard")}
                       >
-                        {selectedRequest.admin_note ||
-                          "No administrator note was provided."}
-                      </div>
-                    </IonCardContent>
-                  </IonCard>
-                )}
-              </div>
-            )}
-          </IonContent>
-        </IonModal>
+                        Go to Agent Dashboard
+                      </IonButton>
+                    </>
+                  )}
+
+                  {/* ---------- REJECTED ---------- */}
+                  {status === "rejected" && (
+                    <>
+                      <IonIcon
+                        icon={closeCircleOutline}
+                        className="status-icon rejected"
+                      />
+                      <h2>Application Rejected</h2>
+                      <p>
+                        Unfortunately, your agent application was not approved.
+                      </p>
+
+                      {request.admin_note && (
+                        <div className="admin-note">
+                          <strong>Admin note:</strong>
+                          <p>{request.admin_note}</p>
+                        </div>
+                      )}
+
+                      <IonButton
+                        fill="outline"
+                        style={{ marginTop: 16 }}
+                        onClick={handleNewApplication}
+                      >
+                        Submit a New Application
+                      </IonButton>
+                    </>
+                  )}
+
+                  {/* ---------- UNKNOWN STATUS ---------- */}
+                  {!["pending", "approved", "rejected"].includes(status) && (
+                    <>
+                      <h2>Status: {request.status}</h2>
+                      <p>Your application has been recorded.</p>
+                    </>
+                  )}
+
+                  <IonButton
+                    fill="clear"
+                    size="small"
+                    style={{ marginTop: 12 }}
+                    onClick={checkStatus}
+                  >
+                    <IonIcon icon={refreshOutline} slot="start" />
+                    Refresh Status
+                  </IonButton>
+                </div>
+              ) : (
+                /* ===================== APPLICATION FORM ===================== */
+                !error && (
+                  <>
+                    {/* ... keep your entire existing form exactly as it was ... */}
+                    {/* (Personal Info, Location, Professional, Message, Agreement, Submit) */}
+                    {/* I left the form unchanged to keep this response focused */}
+                  </>
+                )
+              )}
+            </IonCardContent>
+          </IonCard>
+        )}
       </IonContent>
     </IonPage>
   );

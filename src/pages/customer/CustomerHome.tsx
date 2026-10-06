@@ -51,60 +51,128 @@ export default function CustomerHome() {
         {/* ========== HERO ========== */}
         <div
           style={{
-            padding: "48px 20px 40px",
-            textAlign: "center",
-            background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+            position: "relative",
+            padding: "48px 20px 50px",
             color: "white",
+            overflow: "hidden",
+            backgroundImage: "url('/assets/nice.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
           }}
         >
-          <h1
-            style={{
-              fontSize: "1.9rem",
-              margin: "0 0 10px",
-              fontWeight: 700,
-            }}
-          >
-            Hello, {userName} 👋
-          </h1>
-          <p
-            style={{
-              fontSize: "1.05rem",
-              opacity: 0.95,
-              maxWidth: "420px",
-              margin: "0 auto 28px",
-              lineHeight: 1.5,
-            }}
-          >
-            Find your perfect home, save favorites, and manage everything in one
-            place.
-          </p>
-
+          {/* Dark overlay */}
           <div
             style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.7))",
+              zIndex: 1,
+            }}
+          />
+
+          {/* Hero Content */}
+          <div
+            style={{
+              position: "relative",
+              zIndex: 2,
+              maxWidth: "1100px",
+              margin: "0 auto",
               display: "flex",
-              gap: "12px",
-              justifyContent: "center",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "40px",
               flexWrap: "wrap",
             }}
+            className="hero-content"
           >
-            <IonButton
-              color="light"
-              routerLink="/customer/properties"
-              style={{ fontWeight: 600, minWidth: "150px" }}
+            {/* Text + Buttons */}
+            <div
+              style={{
+                flex: "1 1 420px",
+                textAlign: "left",
+              }}
+              className="hero-text"
             >
-              <IonIcon icon={searchOutline} slot="start" />
-              Browse Homes
-            </IonButton>
+              <h1
+                style={{
+                  fontSize: "clamp(1.8rem, 4vw, 2.3rem)",
+                  margin: "0 0 12px",
+                  fontWeight: 700,
+                  textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                }}
+              >
+                Hello, {userName}
+              </h1>
 
-            <IonButton
-              fill="outline"
-              color="light"
-              routerLink="/customer/favorites"
-              style={{ fontWeight: 600, minWidth: "140px" }}
+              <p
+                style={{
+                  fontSize: "1.05rem",
+                  opacity: 0.95,
+                  maxWidth: "460px",
+                  margin: "0 0 28px",
+                  lineHeight: 1.5,
+                  textShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                }}
+              >
+                Find your perfect home, save favorites, and manage everything in
+                one place.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <IonButton
+                  color="light"
+                  routerLink="/customer/properties"
+                  style={{ fontWeight: 600, minWidth: "150px" }}
+                >
+                  <IonIcon icon={searchOutline} slot="start" />
+                  Browse Homes
+                </IonButton>
+
+                <IonButton
+                  fill="outline"
+                  color="light"
+                  routerLink="/customer/favorites"
+                  style={{ fontWeight: 600, minWidth: "140px" }}
+                >
+                  <IonIcon icon={heartOutline} slot="start" />
+                  Favorites
+                </IonButton>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div
+              style={{
+                flex: "0 0 auto",
+                display: "flex",
+                justifyContent: "flex-end",
+                alignItems: "center",
+              }}
+              className="hero-logo"
             >
-              <IonIcon icon={heartOutline} slot="start" />
-              Favorites
-            </IonButton>
+              <img
+                src="/assets/malo.png"
+                alt="MaloHub"
+                style={{
+                  height: "clamp(130px, 20vw, 200px)",
+                  width: "auto",
+                  maxWidth: "280px",
+                  objectFit: "contain",
+                  display: "block",
+                  borderRadius: "16px",
+                  boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+                  filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.3))",
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -126,7 +194,9 @@ export default function CustomerHome() {
 
             {/* Smart Search */}
             <IonCol size="12" sizeMd="6">
-              <IonCard style={{ borderRadius: "14px", margin: 0, height: "100%" }}>
+              <IonCard
+                style={{ borderRadius: "14px", margin: 0, height: "100%" }}
+              >
                 <IonCardContent style={{ padding: "22px" }}>
                   <div
                     style={{
@@ -170,7 +240,9 @@ export default function CustomerHome() {
 
             {/* Saved Homes */}
             <IonCol size="12" sizeMd="6">
-              <IonCard style={{ borderRadius: "14px", margin: 0, height: "100%" }}>
+              <IonCard
+                style={{ borderRadius: "14px", margin: 0, height: "100%" }}
+              >
                 <IonCardContent style={{ padding: "22px" }}>
                   <div
                     style={{
@@ -214,7 +286,9 @@ export default function CustomerHome() {
 
             {/* Verified Listings */}
             <IonCol size="12" sizeMd="6">
-              <IonCard style={{ borderRadius: "14px", margin: 0, height: "100%" }}>
+              <IonCard
+                style={{ borderRadius: "14px", margin: 0, height: "100%" }}
+              >
                 <IonCardContent style={{ padding: "22px" }}>
                   <div
                     style={{
@@ -243,7 +317,8 @@ export default function CustomerHome() {
                       fontSize: "0.95rem",
                     }}
                   >
-                    Only trusted and verified property listings from real agents.
+                    Only trusted and verified property listings from real
+                    agents.
                   </p>
                 </IonCardContent>
               </IonCard>
@@ -251,7 +326,9 @@ export default function CustomerHome() {
 
             {/* Best Prices */}
             <IonCol size="12" sizeMd="6">
-              <IonCard style={{ borderRadius: "14px", margin: 0, height: "100%" }}>
+              <IonCard
+                style={{ borderRadius: "14px", margin: 0, height: "100%" }}
+              >
                 <IonCardContent style={{ padding: "22px" }}>
                   <div
                     style={{
@@ -387,6 +464,31 @@ export default function CustomerHome() {
           </IonButton>
         </div>
       </IonContent>
+
+      {/* Mobile styles */}
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .hero-content {
+              flex-direction: column-reverse !important; /* logo comes first (on top) */
+              align-items: flex-end !important;          /* stick to the right */
+            }
+
+            .hero-logo {
+              align-self: flex-end !important;
+              margin-bottom: 24px;
+              width: 100%;
+              display: flex;
+              justify-content: flex-end;
+            }
+
+            .hero-text {
+              width: 100%;
+              text-align: left !important;
+            }
+          }
+        `}
+      </style>
     </IonPage>
   );
 }

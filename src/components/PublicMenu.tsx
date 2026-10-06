@@ -22,7 +22,7 @@ export default function PublicMenu() {
     <IonMenu contentId="main-content" menuId="public-menu" type="overlay">
       <IonHeader>
         <IonToolbar color="primary">
-          <IonTitle>Dwelio</IonTitle>
+          <IonTitle>MaloHub</IonTitle>
         </IonToolbar>
       </IonHeader>
 

@@ -522,7 +522,7 @@ export default function BecomeAgent() {
                   <>
                     <div className="agent-intro">
                       <IonIcon icon={personAddOutline} />
-                      <h1>Become a Dwelio Agent</h1>
+                      <h1>Become a MaloHub Agent</h1>
                       <p>
                         Complete the application below. The information you provide
                         will be reviewed by our administrators before your account

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   IonPage,
   IonContent,
@@ -47,6 +47,9 @@ import {
 ========================================================= */
 
 const API_URL = "http://localhost:5001";
+
+// Change this path to match your actual logo location
+const LOGO_URL = "/assets/malo.png";
 
 /* =========================================================
    TYPES
@@ -324,12 +327,40 @@ export default function Dashboard() {
 
   return (
     <IonPage>
+      {/* ===== HEADER WITH LOGO ===== */}
       <IonHeader translucent>
         <IonToolbar color="primary">
           <IonButtons slot="start">
             <IonMenuButton color="light" />
           </IonButtons>
-          <IonTitle>Dashboard</IonTitle>
+
+          {/* Logo + Title */}
+          <div
+            slot="start"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginLeft: 4,
+            }}
+          >
+            <img
+              src={LOGO_URL}
+              alt="Logo"
+              style={{
+                height: 32,
+                width: "auto",
+                objectFit: "contain",
+                borderRadius: 6,
+              }}
+              onError={(e) => {
+                // hide broken image if logo is missing
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+            <IonTitle style={{ paddingInlineStart: 0 }}>Dashboard</IonTitle>
+          </div>
+
           <IonButtons slot="end">
             <IonButton
               color="light"
@@ -343,10 +374,30 @@ export default function Dashboard() {
         </IonToolbar>
       </IonHeader>
 
+      {/* ===== CONTENT WITH BACKGROUND ===== */}
       <IonContent
         fullscreen
-        style={{ "--background": "#f5f7fb" } as React.CSSProperties}
+        style={
+          {
+            "--background": "linear-gradient(180deg, #eef2ff 0%, #f5f7fb 40%, #f8fafc 100%)",
+          } as React.CSSProperties
+        }
       >
+        {/* Soft decorative background shapes */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 280,
+            background:
+              "radial-gradient(ellipse at 20% 0%, rgba(37,99,235,0.12) 0%, transparent 55%), radial-gradient(ellipse at 90% 10%, rgba(79,70,229,0.10) 0%, transparent 50%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent
             pullingText="Pull to refresh"
@@ -354,7 +405,7 @@ export default function Dashboard() {
           />
         </IonRefresher>
 
-        {/* Hero */}
+        {/* ===== HERO CARD WITH LOGO ===== */}
         <IonCard
           style={{
             margin: "20px 16px 15px",
@@ -363,6 +414,8 @@ export default function Dashboard() {
             background: "linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)",
             color: "#ffffff",
             boxShadow: "0 10px 30px rgba(37,99,235,0.22)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <IonCardContent style={{ padding: 24 }}>
@@ -375,16 +428,40 @@ export default function Dashboard() {
               }}
             >
               <div style={{ minWidth: 0 }}>
+                {/* Small logo above welcome text */}
                 <div
                   style={{
-                    fontSize: 13,
-                    opacity: 0.82,
-                    marginBottom: 6,
-                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 8,
                   }}
                 >
-                  {roleName}
+                  <img
+                    src={LOGO_URL}
+                    alt="Logo"
+                    style={{
+                      height: 22,
+                      width: "auto",
+                      objectFit: "contain",
+                      filter: "brightness(0) invert(1)", // makes dark logos white
+                      opacity: 0.95,
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 13,
+                      opacity: 0.82,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {roleName}
+                  </div>
                 </div>
+
                 <h1
                   style={{
                     margin: 0,
@@ -394,7 +471,7 @@ export default function Dashboard() {
                   }}
                 >
                   Welcome back
-                  {user?.name ? `, ${user.name}` : ""} 👋
+                  {user?.name ? `, ${user.name}` : ""}
                 </h1>
                 <p
                   style={{
@@ -465,6 +542,8 @@ export default function Dashboard() {
               borderRadius: 16,
               border: "1px solid #fecaca",
               background: "#fff7f7",
+              position: "relative",
+              zIndex: 1,
             }}
           >
             <IonCardContent>
@@ -509,13 +588,15 @@ export default function Dashboard() {
               justifyContent: "center",
               flexDirection: "column",
               gap: 12,
+              position: "relative",
+              zIndex: 1,
             }}
           >
             <IonSpinner name="crescent" />
             <IonText color="medium">Loading dashboard...</IonText>
           </div>
         ) : (
-          <>
+          <div style={{ position: "relative", zIndex: 1 }}>
             {/* Stats */}
             <div style={{ padding: "0 16px" }}>
               <h2
@@ -713,7 +794,7 @@ export default function Dashboard() {
                 </IonList>
               )}
             </IonCard>
-          </>
+          </div>
         )}
 
         <div style={{ height: 20 }} />
@@ -770,11 +851,7 @@ const ActionCard: React.FC<{
   description: string;
   onClick: () => void;
 }> = ({ icon, iconBg, iconColor, title, description, onClick }) => (
-  <IonCard
-    button
-    onClick={onClick}
-    style={{ margin: 6, borderRadius: 17 }}
-  >
+  <IonCard button onClick={onClick} style={{ margin: 6, borderRadius: 17 }}>
     <IonCardContent>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div

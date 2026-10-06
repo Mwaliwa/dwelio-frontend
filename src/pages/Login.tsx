@@ -166,14 +166,14 @@ export default function Login() {
     <IonPage>
       <IonHeader>
         <IonToolbar color="primary">
-          <IonTitle>Login to Dwelio</IonTitle>
+          <IonTitle>Login to MaloHub</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent className="ion-padding">
         <IonCard>
           <IonCardContent>
-            <h2 className="ion-text-center">Welcome Back 👋</h2>
+            <h2 className="ion-text-center">Welcome Back </h2>
 
             {error && (
               <IonText color="danger">

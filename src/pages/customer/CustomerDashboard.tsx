@@ -5,768 +5,961 @@ import {
   IonHeader,
   IonToolbar,
   IonTitle,
+  IonCard,
+  IonCardContent,
   IonGrid,
   IonRow,
   IonCol,
-  IonCard,
-  IonCardContent,
-  IonButton,
   IonIcon,
-  IonText,
+  IonButton,
+  IonButtons,
+  IonMenuButton,
   IonList,
   IonItem,
   IonLabel,
-  IonAvatar,
-  IonNote,
+  IonBadge,
   IonRefresher,
   IonRefresherContent,
-  IonSkeletonText,
-  IonButtons,
-  IonMenuButton,
-  RefresherEventDetail,
+  IonSpinner,
+  IonText,
+  useIonRouter,
+  useIonToast,
 } from "@ionic/react";
+
 import {
-  heartOutline,
-  timeOutline,
-  chatbubbleOutline,
-  starOutline,
-  personOutline,
-  settingsOutline,
-  homeOutline,
+  addCircleOutline,
+  arrowForwardOutline,
+  businessOutline,
+  calendarOutline,
+  checkmarkCircleOutline,
   chevronForwardOutline,
+  closeCircleOutline,
+  homeOutline,
+  listOutline,
+  logOutOutline,
+  refreshOutline,
+  settingsOutline,
+  timeOutline,
 } from "ionicons/icons";
-
-/* =========================================================
-   TYPES
-========================================================= */
-
-interface Review {
-  id: number;
-  property_title: string;
-  property_image?: string;
-  rating: number;
-  comment: string;
-  created_at?: string;
-}
-
-interface Stats {
-  saved: number;
-  viewed: number;
-  inquiries: number;
-}
-
-interface UserData {
-  id: string | number | null;
-  name: string;
-  email: string;
-}
 
 /* =========================================================
    CONFIG
 ========================================================= */
 
 const API_URL = "http://localhost:5001";
+const LOGO_URL = "/assets/malo.png";
+const HERO_BG_URL = "/assets/nice.jpg";
 
 /* =========================================================
-   HELPERS
+   TYPES
 ========================================================= */
 
-const getToken = (): string | null => {
-  return (
-    localStorage.getItem("token") ||
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("jwt") ||
-    null
-  );
+interface User {
+  id?: number;
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
+interface DashboardStats {
+  properties: number;
+  activeProperties: number;
+  bookings: number;
+  pendingBookings: number;
+  confirmedBookings: number;
+  rejectedBookings: number;
+}
+
+interface RecentBooking {
+  id: number;
+  customer_name?: string;
+  customer_email?: string;
+  property_title?: string;
+  status?: string;
+  created_at?: string;
+}
+
+interface RecentProperty {
+  id: number;
+  title?: string;
+  location?: string;
+  price?: number | string;
+  status?: string;
+  created_at?: string;
+}
+
+interface DashboardResponse {
+  success?: boolean;
+  stats?: Partial<DashboardStats>;
+  recentBookings?: RecentBooking[];
+  recentProperties?: RecentProperty[];
+  error?: string;
+  message?: string;
+}
+
+/* =========================================================
+   DEFAULTS & HELPERS
+========================================================= */
+
+const DEFAULT_STATS: DashboardStats = {
+  properties: 0,
+  activeProperties: 0,
+  bookings: 0,
+  pendingBookings: 0,
+  confirmedBookings: 0,
+  rejectedBookings: 0,
 };
 
-const getUserData = (): UserData => {
-  try {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      return {
-        id: user.id || user._id || null,
-        name: user.name || user.full_name || "Customer",
-        email: user.email || "",
-      };
-    }
-  } catch {
-    // ignore parse errors
+const formatNumber = (value: number) =>
+  new Intl.NumberFormat().format(value);
+
+const formatDate = (dateValue?: string) => {
+  if (!dateValue) return "Recently";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "Recently";
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatPrice = (value?: number | string) => {
+  if (value === undefined || value === null || value === "") {
+    return "Price unavailable";
   }
-
-  const rawId = localStorage.getItem("userId");
-  return {
-    id: rawId && rawId !== "null" && rawId !== "undefined" ? rawId : null,
-    name: localStorage.getItem("name") || "Customer",
-    email: localStorage.getItem("email") || "",
-  };
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return String(value);
+  return `MWK ${new Intl.NumberFormat().format(numeric)}`;
 };
 
-const renderStars = (rating: number): string =>
-  "★".repeat(Math.max(0, Math.min(5, Math.round(rating)))) +
-  "☆".repeat(Math.max(0, 5 - Math.round(rating)));
+const getStatusColor = (
+  status?: string
+): "success" | "warning" | "danger" | "medium" => {
+  const s = status?.toLowerCase();
+  if (s === "confirmed" || s === "approved" || s === "active") return "success";
+  if (s === "pending" || s === "processing") return "warning";
+  if (s === "rejected" || s === "cancelled" || s === "inactive") return "danger";
+  return "medium";
+};
+
+const formatStatus = (status?: string) => {
+  if (!status) return "Unknown";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+const getInitials = (name?: string) => {
+  if (!name) return "A";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 /* =========================================================
    COMPONENT
 ========================================================= */
 
-const CustomerDashboard: React.FC = () => {
-  const user = getUserData();
-  const userId = user.id;
+export default function Dashboard() {
+  const router = useIonRouter();
+  const [presentToast] = useIonToast();
 
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    saved: 0,
-    viewed: 0,
-    inquiries: 0,
-  });
-  const [loadingReviews, setLoadingReviews] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
+  const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
+  const [recentProperties, setRecentProperties] = useState<RecentProperty[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  /* -------------------------------------------------------
-     FETCH DATA
-  ------------------------------------------------------- */
+  const token = localStorage.getItem("token");
 
-  const fetchData = useCallback(async () => {
-    if (!userId) {
-      setLoadingReviews(false);
-      setLoadingStats(false);
-      setError("Please log in to view your dashboard.");
-      return;
-    }
-
-    const token = getToken();
-
-    if (!token) {
-      setLoadingReviews(false);
-      setLoadingStats(false);
-      setError("Authentication token missing. Please log in again.");
-      return;
-    }
-
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-
-    try {
-      setLoadingReviews(true);
-      setLoadingStats(true);
-      setError(null);
-
-      const [reviewsRes, favoritesRes, viewsRes, inquiriesRes] =
-        await Promise.all([
-          fetch(`${API_URL}/api/reviews/user/${userId}`, { headers }),
-          fetch(`${API_URL}/api/favorites/count/${userId}`, { headers }),
-          fetch(`${API_URL}/api/views/count/${userId}`, { headers }),
-          fetch(`${API_URL}/api/inquiries/count/${userId}`, { headers }),
-        ]);
-
-      // ---------- Reviews ----------
-      if (reviewsRes.ok) {
-        const data = await reviewsRes.json();
-        const list = Array.isArray(data)
-          ? data
-          : data?.data || data?.reviews || [];
-        setReviews(list);
-      } else {
-        console.warn("Reviews failed:", reviewsRes.status);
-        setReviews([]);
-      }
-
-      // ---------- Stats helper ----------
-      const getCount = async (res: Response): Promise<number> => {
-        if (!res.ok) {
-          console.warn(`Count request failed: ${res.status} ${res.url}`);
-          return 0;
-        }
-        const json = await res.json();
-        return Number(json.count ?? 0);
-      };
-
-      const [saved, viewed, inquiries] = await Promise.all([
-        getCount(favoritesRes),
-        getCount(viewsRes),
-        getCount(inquiriesRes),
-      ]);
-
-      setStats({ saved, viewed, inquiries });
-    } catch (err) {
-      console.error("Failed to load dashboard data:", err);
-      setReviews([]);
-      setStats({ saved: 0, viewed: 0, inquiries: 0 });
-      setError("Failed to load dashboard data. Please try again.");
-    } finally {
-      setLoadingReviews(false);
-      setLoadingStats(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
-    await fetchData();
-    event.detail.complete();
-  };
-
-  /* -------------------------------------------------------
-     SKELETON
-  ------------------------------------------------------- */
-
-  const StatSkeleton = () => (
-    <IonCard className="stat-card">
-      <IonCardContent className="stat-content">
-        <IonSkeletonText
-          animated
-          style={{ width: 28, height: 28, margin: "0 auto 8px" }}
-        />
-        <IonSkeletonText
-          animated
-          style={{ width: 40, height: 24, margin: "0 auto 4px" }}
-        />
-        <IonSkeletonText
-          animated
-          style={{ width: 50, height: 14, margin: "0 auto" }}
-        />
-      </IonCardContent>
-    </IonCard>
+  const showToast = useCallback(
+    async (
+      message: string,
+      color: "success" | "danger" | "warning" | "medium" = "medium"
+    ) => {
+      await presentToast({
+        message,
+        color,
+        duration: 2800,
+        position: "bottom",
+      });
+    },
+    [presentToast]
   );
 
-  /* -------------------------------------------------------
-     RENDER
-  ------------------------------------------------------- */
+  /* ---------- LOAD USER ---------- */
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    const storedRole = localStorage.getItem("role");
+
+    if (!storedUser || !token) {
+      router.push("/login", "root", "replace");
+      return;
+    }
+
+    if (storedRole !== "agent" && storedRole !== "landlord") {
+      router.push("/login", "root", "replace");
+      return;
+    }
+
+    try {
+      const parsed: User = JSON.parse(storedUser);
+      setUser({
+        ...parsed,
+        role: parsed.role || storedRole,
+      });
+    } catch {
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("token");
+      router.push("/login", "root", "replace");
+    }
+  }, [router, token]);
+
+  /* ---------- FETCH DASHBOARD ---------- */
+
+  const fetchDashboard = useCallback(
+    async (showLoader = true) => {
+      if (!token) {
+        router.push("/login", "root", "replace");
+        return;
+      }
+
+      try {
+        setError("");
+        if (showLoader) setLoading(true);
+
+        const response = await fetch(`${API_URL}/api/agent/dashboard`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("role");
+          await showToast(
+            "Your session has expired. Please login again.",
+            "danger"
+          );
+          router.push("/login", "root", "replace");
+          return;
+        }
+
+        let data: DashboardResponse;
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error("The server returned an invalid response.");
+        }
+
+        if (!response.ok || data.success === false) {
+          throw new Error(
+            data.error || data.message || "Unable to load dashboard."
+          );
+        }
+
+        const serverStats = data.stats || {};
+
+        setStats({
+          properties: Number(serverStats.properties) || 0,
+          activeProperties: Number(serverStats.activeProperties) || 0,
+          bookings: Number(serverStats.bookings) || 0,
+          pendingBookings: Number(serverStats.pendingBookings) || 0,
+          confirmedBookings: Number(serverStats.confirmedBookings) || 0,
+          rejectedBookings: Number(serverStats.rejectedBookings) || 0,
+        });
+
+        setRecentBookings(
+          Array.isArray(data.recentBookings) ? data.recentBookings : []
+        );
+        setRecentProperties(
+          Array.isArray(data.recentProperties) ? data.recentProperties : []
+        );
+      } catch (err: any) {
+        console.error("DASHBOARD ERROR:", err);
+        setError(err?.message || "Unable to load dashboard information.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router, showToast, token]
+  );
+
+  useEffect(() => {
+    fetchDashboard(true);
+  }, [fetchDashboard]);
+
+  /* ---------- REFRESH ---------- */
+
+  const handleRefresh = async (event: CustomEvent) => {
+    setRefreshing(true);
+    try {
+      await fetchDashboard(false);
+    } finally {
+      setRefreshing(false);
+      event.detail.complete();
+    }
+  };
+
+  /* ---------- LOGOUT ---------- */
+
+  const logout = async () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    await showToast("You have been logged out.", "success");
+    router.push("/login", "root", "replace");
+  };
+
+  const goTo = (path: string) => router.push(path);
+
+  const roleName =
+    user?.role === "landlord" ? "Landlord Portal" : "Agent Portal";
+
+  /* ---------- RENDER ---------- */
 
   return (
     <IonPage>
-      <IonHeader className="dashboard-header">
+      <IonHeader>
         <IonToolbar color="primary">
           <IonButtons slot="start">
-            <IonMenuButton />
+            <IonMenuButton color="light" />
           </IonButtons>
-          <IonTitle>My Dashboard</IonTitle>
+          <IonTitle>Dashboard</IonTitle>
+          <IonButtons slot="end">
+            <IonButton
+              color="light"
+              fill="clear"
+              onClick={() => fetchDashboard(true)}
+              disabled={loading || refreshing}
+            >
+              <IonIcon icon={refreshOutline} slot="icon-only" />
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
 
       <IonContent fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
-          <IonRefresherContent />
+          <IonRefresherContent
+            pullingText="Pull to refresh"
+            refreshingText="Refreshing dashboard..."
+          />
         </IonRefresher>
 
-        {/* ========== WELCOME ========== */}
+        {/* ========== HERO BANNER ========== */}
         <div className="welcome-banner">
-          <div className="welcome-inner">
-            <IonAvatar className="welcome-avatar">
-              <div className="avatar-fallback">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-            </IonAvatar>
+          <div className="welcome-overlay" />
 
-            <div>
-              <h2 className="welcome-title">Welcome back, {user.name}</h2>
-              <p className="welcome-subtitle">
-                Manage your activity, saved homes & reviews
-              </p>
+          <div className="welcome-inner">
+            {/* Left side */}
+            <div className="welcome-text">
+              <div className="welcome-avatar">
+                <div className="avatar-fallback">
+                  {getInitials(user?.name)}
+                </div>
+              </div>
+
+              <div>
+                <div className="welcome-role">{roleName}</div>
+                <h2 className="welcome-title">
+                  Welcome back{user?.name ? `, ${user.name}` : ""}
+                </h2>
+                <p className="welcome-subtitle">
+                  Manage your properties, bookings and customer activity from
+                  one place.
+                </p>
+
+                <div className="welcome-actions">
+                  <IonButton
+                    color="light"
+                    size="small"
+                    onClick={() => goTo("/agent/add-property")}
+                  >
+                    <IonIcon icon={addCircleOutline} slot="start" />
+                    Add Property
+                  </IonButton>
+                  <IonButton
+                    color="light"
+                    fill="outline"
+                    size="small"
+                    onClick={logout}
+                  >
+                    <IonIcon icon={logOutOutline} slot="start" />
+                    Logout
+                  </IonButton>
+                </div>
+              </div>
             </div>
+
+            {/* Right side - Logo */}
+            <img
+              src={LOGO_URL}
+              alt="MaloHub"
+              className="welcome-logo"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
           </div>
         </div>
 
-        <IonGrid className="ion-padding dashboard-grid">
-          {/* Error banner */}
+        {/* ========== CONTENT ========== */}
+        <div className="dashboard-content">
+          {/* Error */}
           {error && (
-            <IonRow>
-              <IonCol size="12">
-                <div className="error-banner">
-                  <IonText color="danger">{error}</IonText>
+            <IonCard className="error-card">
+              <IonCardContent>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <IonIcon
+                    icon={closeCircleOutline}
+                    style={{ fontSize: 24, color: "#dc2626" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ color: "#991b1b" }}>
+                      Unable to load dashboard
+                    </strong>
+                    <p
+                      style={{
+                        margin: "5px 0 12px",
+                        color: "#7f1d1d",
+                        fontSize: 13,
+                      }}
+                    >
+                      {error}
+                    </p>
+                    <IonButton
+                      size="small"
+                      fill="outline"
+                      color="danger"
+                      onClick={() => fetchDashboard(true)}
+                    >
+                      Try Again
+                    </IonButton>
+                  </div>
                 </div>
-              </IonCol>
-            </IonRow>
+              </IonCardContent>
+            </IonCard>
           )}
 
-          {/* ========== STATS ========== */}
-          <IonRow>
-            <IonCol size="6" sizeMd="3">
-              {loadingStats ? (
-                <StatSkeleton />
-              ) : (
-                <IonCard className="stat-card">
-                  <IonCardContent className="stat-content">
-                    <IonIcon
-                      icon={heartOutline}
-                      className="stat-icon"
-                      style={{ color: "#e11d48" }}
+          {loading ? (
+            <div className="loading-block">
+              <IonSpinner name="crescent" />
+              <IonText color="medium">Loading dashboard...</IonText>
+            </div>
+          ) : (
+            <>
+              {/* Stats */}
+              <h2 className="section-title">Overview</h2>
+              <IonGrid className="stats-grid">
+                <IonRow>
+                  <IonCol size="6" sizeMd="3">
+                    <StatCard
+                      icon={businessOutline}
+                      iconBg="#eff6ff"
+                      iconColor="#2563eb"
+                      value={stats.properties}
+                      label="Properties"
                     />
-                    <h2 className="stat-value">{stats.saved}</h2>
-                    <IonText color="medium" className="stat-label">
-                      Saved
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              )}
-            </IonCol>
-
-            <IonCol size="6" sizeMd="3">
-              {loadingStats ? (
-                <StatSkeleton />
-              ) : (
-                <IonCard className="stat-card">
-                  <IonCardContent className="stat-content">
-                    <IonIcon
+                  </IonCol>
+                  <IonCol size="6" sizeMd="3">
+                    <StatCard
+                      icon={checkmarkCircleOutline}
+                      iconBg="#ecfdf5"
+                      iconColor="#059669"
+                      value={stats.activeProperties}
+                      label="Active Listings"
+                    />
+                  </IonCol>
+                  <IonCol size="6" sizeMd="3">
+                    <StatCard
+                      icon={calendarOutline}
+                      iconBg="#f5f3ff"
+                      iconColor="#7c3aed"
+                      value={stats.bookings}
+                      label="Total Bookings"
+                    />
+                  </IonCol>
+                  <IonCol size="6" sizeMd="3">
+                    <StatCard
                       icon={timeOutline}
-                      className="stat-icon"
-                      style={{ color: "#2563eb" }}
+                      iconBg="#fffbeb"
+                      iconColor="#d97706"
+                      value={stats.pendingBookings}
+                      label="Pending"
                     />
-                    <h2 className="stat-value">{stats.viewed}</h2>
-                    <IonText color="medium" className="stat-label">
-                      Viewed
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              )}
-            </IonCol>
+                  </IonCol>
+                </IonRow>
+              </IonGrid>
 
-            <IonCol size="6" sizeMd="3">
-              {loadingStats ? (
-                <StatSkeleton />
-              ) : (
-                <IonCard className="stat-card">
-                  <IonCardContent className="stat-content">
-                    <IonIcon
-                      icon={chatbubbleOutline}
-                      className="stat-icon"
-                      style={{ color: "#7c3aed" }}
+              {/* Quick Actions */}
+              <h2 className="section-title">Quick Actions</h2>
+              <IonGrid className="actions-grid">
+                <IonRow>
+                  <IonCol size="12" sizeSm="6">
+                    <ActionCard
+                      icon={addCircleOutline}
+                      iconBg="#eff6ff"
+                      iconColor="#2563eb"
+                      title="Add Property"
+                      description="Create a new listing"
+                      onClick={() => goTo("/agent/add-property")}
                     />
-                    <h2 className="stat-value">{stats.inquiries}</h2>
-                    <IonText color="medium" className="stat-label">
-                      Inquiries
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              )}
-            </IonCol>
-
-            <IonCol size="6" sizeMd="3">
-              {loadingStats ? (
-                <StatSkeleton />
-              ) : (
-                <IonCard className="stat-card">
-                  <IonCardContent className="stat-content">
-                    <IonIcon
-                      icon={starOutline}
-                      className="stat-icon"
-                      style={{ color: "#f59e0b" }}
+                  </IonCol>
+                  <IonCol size="12" sizeSm="6">
+                    <ActionCard
+                      icon={homeOutline}
+                      iconBg="#ecfdf5"
+                      iconColor="#059669"
+                      title="My Properties"
+                      description="Manage your listings"
+                      onClick={() => goTo("/agent/properties")}
                     />
-                    <h2 className="stat-value">{reviews.length}</h2>
-                    <IonText color="medium" className="stat-label">
-                      Reviews
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              )}
-            </IonCol>
-          </IonRow>
+                  </IonCol>
+                  <IonCol size="12" sizeSm="6">
+                    <ActionCard
+                      icon={listOutline}
+                      iconBg="#f5f3ff"
+                      iconColor="#7c3aed"
+                      title="Bookings"
+                      description="Manage customer bookings"
+                      onClick={() => goTo("/agent/bookings")}
+                    />
+                  </IonCol>
+                  <IonCol size="12" sizeSm="6">
+                    <ActionCard
+                      icon={settingsOutline}
+                      iconBg="#f1f5f9"
+                      iconColor="#475569"
+                      title="Settings"
+                      description="Manage your account"
+                      onClick={() => goTo("/agent/settings")}
+                    />
+                  </IonCol>
+                </IonRow>
+              </IonGrid>
 
-          {/* ========== QUICK ACTIONS ========== */}
-          <IonRow className="ion-margin-top">
-            <IonCol size="12">
-              <h3 className="section-title">Quick Actions</h3>
-            </IonCol>
+              {/* Recent Bookings */}
+              <SectionHeader
+                title="Recent Bookings"
+                onViewAll={() => goTo("/agent/bookings")}
+              />
 
-            <IonCol size="6">
-              <IonButton
-                expand="block"
-                fill="outline"
-                routerLink="/customer/properties"
-                className="action-btn"
-              >
-                <IonIcon icon={homeOutline} slot="start" />
-                Browse Homes
-              </IonButton>
-            </IonCol>
-
-            <IonCol size="6">
-              <IonButton
-                expand="block"
-                fill="outline"
-                routerLink="/customer/favorites"
-                className="action-btn"
-              >
-                <IonIcon icon={heartOutline} slot="start" />
-                My Favorites
-              </IonButton>
-            </IonCol>
-          </IonRow>
-
-          {/* ========== MY REVIEWS ========== */}
-          <IonRow className="ion-margin-top">
-            <IonCol size="12">
               <IonCard className="section-card">
-                <IonCardContent>
-                  <div className="section-header">
-                    <h3 className="section-title" style={{ margin: 0 }}>
-                      My Reviews
-                    </h3>
+                {recentBookings.length === 0 ? (
+                  <EmptyState
+                    icon={calendarOutline}
+                    message="No recent bookings."
+                  />
+                ) : (
+                  <IonList lines="full">
+                    {recentBookings.slice(0, 5).map((booking) => (
+                      <IonItem key={booking.id}>
+                        <IonIcon
+                          icon={calendarOutline}
+                          slot="start"
+                          color="primary"
+                        />
+                        <IonLabel>
+                          <h3>{booking.customer_name || "Customer"}</h3>
+                          <p>{booking.property_title || "Property"}</p>
+                          <p style={{ fontSize: 11 }}>
+                            {formatDate(booking.created_at)}
+                          </p>
+                        </IonLabel>
+                        <IonBadge
+                          slot="end"
+                          color={getStatusColor(booking.status)}
+                        >
+                          {formatStatus(booking.status)}
+                        </IonBadge>
+                      </IonItem>
+                    ))}
+                  </IonList>
+                )}
+              </IonCard>
 
-                    {reviews.length > 3 && (
-                      <IonButton
-                        fill="clear"
-                        size="small"
-                        routerLink="/customer/reviews"
+              {/* Recent Properties */}
+              <SectionHeader
+                title="Recent Properties"
+                onViewAll={() => goTo("/agent/properties")}
+              />
+
+              <IonCard className="section-card" style={{ marginBottom: 30 }}>
+                {recentProperties.length === 0 ? (
+                  <EmptyState
+                    icon={businessOutline}
+                    message="You haven't added any properties yet."
+                    actionLabel="Add Property"
+                    onAction={() => goTo("/agent/add-property")}
+                  />
+                ) : (
+                  <IonList lines="full">
+                    {recentProperties.slice(0, 5).map((property) => (
+                      <IonItem
+                        key={property.id}
+                        button
+                        onClick={() => goTo("/agent/properties")}
                       >
-                        View All
-                        <IonIcon icon={chevronForwardOutline} slot="end" />
-                      </IonButton>
-                    )}
-                  </div>
-
-                  {loadingReviews ? (
-                    <div className="review-skeleton-list">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="review-skeleton">
-                          <IonSkeletonText
-                            animated
-                            style={{ width: "70%", height: 16 }}
-                          />
-                          <IonSkeletonText
-                            animated
-                            style={{
-                              width: "40%",
-                              height: 14,
-                              marginTop: 8,
-                            }}
-                          />
-                          <IonSkeletonText
-                            animated
-                            style={{
-                              width: "90%",
-                              height: 14,
-                              marginTop: 8,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : !userId ? (
-                    <div className="empty-block">
-                      <IonText color="medium">
-                        Please log in to view your reviews.
-                      </IonText>
-                    </div>
-                  ) : reviews.length === 0 ? (
-                    <div className="empty-block">
-                      <IonIcon icon={starOutline} className="empty-icon" />
-                      <p>You haven’t written any reviews yet.</p>
-                      <IonButton size="small" routerLink="/customer/properties">
-                        Browse Properties
-                      </IonButton>
-                    </div>
-                  ) : (
-                    <IonList lines="none" className="review-list">
-                      {reviews.slice(0, 3).map((review) => (
-                        <IonItem key={review.id} className="review-item">
-                          <IonLabel>
-                            <h3 className="review-title">
-                              {review.property_title || "Property"}
-                            </h3>
-                            <p className="review-stars">
-                              {renderStars(review.rating)}
-                            </p>
-                            <p className="review-comment">
-                              {review.comment
-                                ? review.comment.length > 80
-                                  ? `${review.comment.slice(0, 80)}…`
-                                  : review.comment
-                                : "No comment"}
-                            </p>
-                            {review.created_at && (
-                              <IonNote className="review-date">
-                                {new Date(
-                                  review.created_at
-                                ).toLocaleDateString()}
-                              </IonNote>
-                            )}
-                          </IonLabel>
-                        </IonItem>
-                      ))}
-                    </IonList>
-                  )}
-                </IonCardContent>
+                        <IonIcon
+                          icon={homeOutline}
+                          slot="start"
+                          color="primary"
+                        />
+                        <IonLabel>
+                          <h3>{property.title || "Property"}</h3>
+                          <p>{property.location || "Location unavailable"}</p>
+                          <p>{formatPrice(property.price)}</p>
+                        </IonLabel>
+                        <IonBadge
+                          slot="end"
+                          color={getStatusColor(property.status)}
+                        >
+                          {formatStatus(property.status)}
+                        </IonBadge>
+                      </IonItem>
+                    ))}
+                  </IonList>
+                )}
               </IonCard>
-            </IonCol>
-          </IonRow>
-
-          {/* ========== ACCOUNT ========== */}
-          <IonRow className="ion-margin-top">
-            <IonCol size="12">
-              <IonCard className="section-card">
-                <IonCardContent>
-                  <div className="account-row">
-                    <div className="account-icon-wrap">
-                      <IonIcon
-                        icon={personOutline}
-                        className="account-icon"
-                      />
-                    </div>
-
-                    <div className="account-text">
-                      <h3>Account Settings</h3>
-                      <p>Manage your profile and preferences</p>
-                    </div>
-                  </div>
-
-                  <div className="account-actions">
-                    <IonButton
-                      expand="block"
-                      fill="outline"
-                      routerLink="/customer/profile"
-                    >
-                      Edit Profile
-                    </IonButton>
-
-                    <IonButton
-                      expand="block"
-                      fill="clear"
-                      routerLink="/customer/settings"
-                    >
-                      <IonIcon icon={settingsOutline} slot="icon-only" />
-                    </IonButton>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-          </IonRow>
-
-          <div style={{ height: 24 }} />
-        </IonGrid>
+            </>
+          )}
+        </div>
       </IonContent>
 
+      {/* ========== STYLES ========== */}
       <style>{`
-        .dashboard-header {
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        /* ========== Welcome Banner ========== */
+        .welcome-banner {
+          position: relative;
+          min-height: 300px;
+          padding: 48px 24px 56px;
+          color: #fff;
+          overflow: hidden;
+          background-image: url('${HERO_BG_URL}');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          display: flex;
+          align-items: center;
         }
 
-        /* Welcome */
-        .welcome-banner {
-          padding: 28px 20px 32px;
-          background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-          color: #fff;
+        .welcome-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.50),
+            rgba(0, 0, 0, 0.68)
+          );
+          z-index: 1;
         }
 
         .welcome-inner {
+          position: relative;
+          z-index: 2;
           display: flex;
           align-items: center;
-          gap: 16px;
+          justify-content: space-between;
+          gap: 24px;
+          width: 100%;
+        }
+
+        .welcome-text {
+          display: flex;
+          align-items: flex-start;
+          gap: 18px;
+          flex: 1;
+          min-width: 0;
         }
 
         .welcome-avatar {
-          width: 64px;
-          height: 64px;
-          border: 3px solid rgba(255, 255, 255, 0.3);
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          border: 3px solid rgba(255, 255, 255, 0.38);
+          flex-shrink: 0;
+          overflow: hidden;
         }
 
         .avatar-fallback {
           width: 100%;
           height: 100%;
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.22);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 28px;
-          font-weight: 600;
-        }
-
-        .welcome-title {
-          margin: 0 0 4px;
-          font-size: 1.45rem;
-          font-weight: 600;
-        }
-
-        .welcome-subtitle {
-          margin: 0;
-          opacity: 0.9;
-          font-size: 0.95rem;
-        }
-
-        /* Error */
-        .error-banner {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          border-radius: 10px;
-          padding: 12px 16px;
-          margin-bottom: 8px;
-          text-align: center;
-        }
-
-        /* Stats */
-        .stat-card {
-          margin: 0;
-          border-radius: 14px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .stat-content {
-          text-align: center;
-          padding: 16px 8px;
-        }
-
-        .stat-icon {
-          font-size: 28px;
-        }
-
-        .stat-value {
-          margin: 8px 0 2px;
-          font-size: 1.55rem;
           font-weight: 700;
         }
 
-        .stat-label {
-          font-size: 0.85rem;
-        }
-
-        /* Sections */
-        .section-title {
-          margin: 8px 0 12px;
-          font-size: 1.1rem;
-          font-weight: 600;
-        }
-
-        .section-card {
-          border-radius: 14px;
-          margin: 0;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-
-        .action-btn {
-          height: 48px;
-        }
-
-        /* Reviews */
-        .review-list {
-          background: transparent;
-        }
-
-        .review-item {
-          --background: #f8fafc;
-          border-radius: 10px;
-          margin-bottom: 10px;
-        }
-
-        .review-title {
-          font-weight: 600;
+        .welcome-role {
+          font-size: 13px;
+          opacity: 0.9;
+          font-weight: 500;
           margin-bottom: 4px;
         }
 
-        .review-stars {
-          color: #f59e0b;
-          font-size: 0.95rem;
-          margin: 0 0 4px;
+        .welcome-title {
+          margin: 0 0 6px;
+          font-size: 1.55rem;
+          font-weight: 700;
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+          line-height: 1.25;
         }
 
-        .review-comment {
-          color: #475569;
-          font-size: 0.9rem;
-          margin: 0;
-        }
-
-        .review-date {
-          font-size: 0.8rem;
-          margin-top: 4px;
-          display: block;
-        }
-
-        .review-skeleton-list {
-          padding: 4px 0;
-        }
-
-        .review-skeleton {
-          background: #f8fafc;
-          border-radius: 10px;
-          padding: 14px;
-          margin-bottom: 10px;
-        }
-
-        .empty-block {
-          text-align: center;
-          padding: 24px 0;
-        }
-
-        .empty-block p {
-          color: #64748b;
+        .welcome-subtitle {
           margin: 0 0 16px;
+          opacity: 0.95;
+          font-size: 1rem;
+          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
         }
 
-        .empty-icon {
-          font-size: 42px;
-          color: #cbd5e1;
-          margin-bottom: 8px;
-        }
-
-        /* Account */
-        .account-row {
+        .welcome-actions {
           display: flex;
-          align-items: center;
-          gap: 14px;
+          flex-wrap: wrap;
+          gap: 10px;
         }
 
-        .account-icon-wrap {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          background: #eff6ff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .welcome-logo {
+          height: 105px;
+          width: auto;
+          max-width: 300px;
+          object-fit: contain;
+          border-radius: 16px;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
           flex-shrink: 0;
         }
 
-        .account-icon {
-          font-size: 24px;
-          color: #2563eb;
+        /* ========== Content ========== */
+        .dashboard-content {
+          padding: 20px 16px 40px;
+          background: #f5f7fb;
         }
 
-        .account-text h3 {
-          margin: 0 0 2px;
-          font-weight: 600;
+        .section-title {
+          margin: 18px 0 12px;
+          font-size: 18px;
+          font-weight: 750;
+          color: #111827;
         }
 
-        .account-text p {
-          margin: 0;
-          color: #64748b;
-          font-size: 0.9rem;
+        .stats-grid,
+        .actions-grid {
+          padding: 0;
         }
 
-        .account-actions {
+        .error-card {
+          margin: 0 0 16px;
+          border-radius: 16px;
+          border: 1px solid #fecaca;
+          background: #fff7f7;
+        }
+
+        .loading-block {
+          min-height: 280px;
           display: flex;
-          gap: 10px;
-          margin-top: 18px;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 12px;
         }
 
-        /* Desktop */
+        .section-card {
+          margin: 0 0 8px;
+          border-radius: 17px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        }
+
+        /* ========== Desktop ========== */
         @media (min-width: 768px) {
-          .dashboard-grid {
-            max-width: 900px;
-            margin: 0 auto;
+          .welcome-banner {
+            min-height: 360px;
+            padding: 64px 24px 72px;
           }
 
+          .welcome-logo {
+            height: 130px;
+            max-width: 340px;
+          }
+
+          .welcome-title {
+            font-size: 1.8rem;
+          }
+
+          .welcome-avatar {
+            width: 80px;
+            height: 80px;
+          }
+
+          .dashboard-content {
+            max-width: 960px;
+            margin: 0 auto;
+          }
+        }
+
+        /* ========== Mobile ========== */
+        @media (max-width: 600px) {
           .welcome-banner {
-            padding-left: calc((100% - 900px) / 2 + 20px);
-            padding-right: calc((100% - 900px) / 2 + 20px);
+            min-height: 260px;
+            padding: 36px 18px 44px;
+          }
+
+          .welcome-inner {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+          }
+
+          .welcome-logo {
+            height: 82px;
+            max-width: 200px;
+            align-self: flex-end;
+          }
+
+          .welcome-title {
+            font-size: 1.3rem;
+          }
+
+          .welcome-subtitle {
+            font-size: 0.92rem;
+          }
+
+          .welcome-avatar {
+            width: 60px;
+            height: 60px;
           }
         }
       `}</style>
     </IonPage>
   );
-};
+}
 
-export default CustomerDashboard;
+/* =========================================================
+   SMALL REUSABLE COMPONENTS
+========================================================= */
+
+const StatCard: React.FC<{
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  value: number;
+  label: string;
+}> = ({ icon, iconBg, iconColor, value, label }) => (
+  <IonCard
+    style={{
+      margin: 6,
+      borderRadius: 17,
+      boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+    }}
+  >
+    <IonCardContent style={{ padding: "17px 13px" }}>
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: iconBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <IonIcon icon={icon} style={{ fontSize: 22, color: iconColor }} />
+      </div>
+      <h2 style={{ margin: "13px 0 3px", fontSize: 24, fontWeight: 800 }}>
+        {formatNumber(value)}
+      </h2>
+      <p style={{ margin: 0, color: "#6b7280", fontSize: 12 }}>{label}</p>
+    </IonCardContent>
+  </IonCard>
+);
+
+const ActionCard: React.FC<{
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  description: string;
+  onClick: () => void;
+}> = ({ icon, iconBg, iconColor, title, description, onClick }) => (
+  <IonCard button onClick={onClick} style={{ margin: 6, borderRadius: 17 }}>
+    <IonCardContent>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            background: iconBg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <IonIcon icon={icon} style={{ fontSize: 25, color: iconColor }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <strong>{title}</strong>
+          <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 12 }}>
+            {description}
+          </p>
+        </div>
+        <IonIcon icon={chevronForwardOutline} color="medium" />
+      </div>
+    </IonCardContent>
+  </IonCard>
+);
+
+const SectionHeader: React.FC<{
+  title: string;
+  onViewAll: () => void;
+}> = ({ title, onViewAll }) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      margin: "18px 0 12px",
+    }}
+  >
+    <h2
+      style={{
+        margin: 0,
+        fontSize: 18,
+        fontWeight: 750,
+        color: "#111827",
+      }}
+    >
+      {title}
+    </h2>
+    <IonButton fill="clear" size="small" onClick={onViewAll}>
+      View All
+      <IonIcon icon={arrowForwardOutline} slot="end" />
+    </IonButton>
+  </div>
+);
+
+const EmptyState: React.FC<{
+  icon: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}> = ({ icon, message, actionLabel, onAction }) => (
+  <IonCardContent style={{ textAlign: "center", padding: "30px 20px" }}>
+    <IonIcon icon={icon} style={{ fontSize: 38, color: "#94a3b8" }} />
+    <p style={{ margin: "10px 0 15px", color: "#64748b" }}>{message}</p>
+    {actionLabel && onAction && (
+      <IonButton size="small" onClick={onAction}>
+        <IonIcon icon={addCircleOutline} slot="start" />
+        {actionLabel}
+      </IonButton>
+    )}
+  </IonCardContent>
+);
